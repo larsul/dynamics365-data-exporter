@@ -4,6 +4,10 @@
 
 Windows desktop app (WinForms, .NET 8) that copies a Dataverse table (default `annotation`, scales to millions of rows) into SQL Server or Azure SQL Database. A wizard walks through source, destination, mapping and start. The app creates the database, schema and table when they are missing, or maps the attributes onto an existing table. Runs are Full or Incremental (modifiedon watermark), with optional delete detection and parallel reads. Every page is checkpointed, so a crashed or cancelled run continues where it stopped. A headless mode lets you schedule runs.
 
+## Questions, bugs and access
+
+Open an [issue](https://github.com/larsul/dynamics365-data-exporter/issues) or start a [discussion](https://github.com/larsul/dynamics365-data-exporter/discussions) on GitHub. Please do not include environment URLs, server names, connection strings or secrets in a public issue — a log excerpt with those removed is enough.
+
 ## Prerequisites
 
 - Windows 10 or 11, 64-bit. The released installer and portable zip carry .NET 8 inside the executable, so nothing has to be installed. You only need the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) to build from source.
