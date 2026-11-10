@@ -31,6 +31,7 @@ internal sealed class UpdateForm : Form
     private readonly Panel _notesHost = new() { Dock = DockStyle.Fill, Visible = false, Margin = Padding.Empty };
     private readonly ProgressStrip _progress = new() { Dock = DockStyle.Top, Height = 8, Visible = false, Margin = new Padding(0, 6, 0, 6) };
     private readonly LinkLabel _openPage = new() { AutoSize = true, Text = "Open the releases page", Anchor = AnchorStyles.Left, Visible = false, Margin = new Padding(0, 9, 3, 3) };
+    private readonly LinkLabel _openChangelog = new() { AutoSize = true, Text = "Full changelog", Anchor = AnchorStyles.Left, Margin = new Padding(14, 9, 3, 3) };
 
     private readonly Button _action = Theme.Primary(WizardLayout.MakeButton("&Download and install", 170));
     private readonly Button _recheck = WizardLayout.MakeButton("Check &again", 110);
@@ -57,7 +58,7 @@ internal sealed class UpdateForm : Form
 
         var card = new Card("Dataverse to SQL Sync") { Dock = DockStyle.Fill, AutoSize = false, Margin = Padding.Empty };
         var body = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 4, 0, 0) };
-        var notesCard = new Card("Release notes") { Dock = DockStyle.Fill, AutoSize = false, Margin = Padding.Empty };
+        var notesCard = new Card("What is new in this version") { Dock = DockStyle.Fill, AutoSize = false, Margin = Padding.Empty };
         notesCard.Controls.Add(_notes);
         _notesHost.Controls.Add(notesCard);
         body.Controls.Add(_notesHost);
@@ -78,7 +79,9 @@ internal sealed class UpdateForm : Form
         buttons.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         _action.Margin = new Padding(3, 3, 3, 3);
         _close.Margin = new Padding(12, 3, 3, 3);
-        buttons.Controls.Add(_openPage, 0, 0);
+        var links = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoSize = true, Anchor = AnchorStyles.Left, Margin = Padding.Empty };
+        links.Controls.AddRange(new Control[] { _openPage, _openChangelog });
+        buttons.Controls.Add(links, 0, 0);
         buttons.Controls.Add(new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty }, 1, 0);
         buttons.Controls.Add(_recheck, 2, 0);
         buttons.Controls.Add(_action, 3, 0);
@@ -93,6 +96,7 @@ internal sealed class UpdateForm : Form
         _recheck.Click += async (_, _) => await CheckAsync();
         _close.Click += (_, _) => Close();
         _openPage.LinkClicked += (_, _) => OpenUrl(_release?.HtmlUrl ?? UpdateService.ReleasesPageUrl);
+        _openChangelog.LinkClicked += (_, _) => OpenUrl(UpdateService.ChangelogUrl);
         CancelButton = _close;
 
         Theme.ApplyTree(this);

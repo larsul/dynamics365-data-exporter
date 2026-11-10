@@ -84,6 +84,9 @@ internal static class UpdateService
     /// <summary>Page a user can open to download a release by hand.</summary>
     public static string ReleasesPageUrl => $"https://github.com/{Repository}/releases";
 
+    /// <summary>The project's changelog, which lists what changed in every version.</summary>
+    public static string ChangelogUrl => $"https://github.com/{Repository}/blob/main/CHANGELOG.md";
+
     /// <summary>Full path of the running executable (the single file itself, not its extraction folder).</summary>
     public static string ExecutablePath =>
         Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "DataverseToSql.exe");

@@ -49,6 +49,8 @@ The app checks for a newer release when it starts and whenever you ask it to. Th
    - an installed copy runs the new setup program silently and upgrades in place;
    - a portable copy replaces `DataverseToSql.exe` after the app closes (the previous file is kept as `.old` until the swap succeeds).
 
+Every version's changes are listed in [CHANGELOG.md](CHANGELOG.md), which is also what the release notes on GitHub and the notes in the Updates dialog show.
+
 Stop a running sync before updating; the dialog refuses while one is in flight. If an update fails, the dialog shows why and **Open the releases page** lets you download it by hand. The portable helper writes `%TEMP%\DataverseToSql-update.log`.
 
 The repository the app checks is baked in at build time (`UpdateRepositoryOwner` / `UpdateRepositoryName` in `DataverseToSql.csproj`). Change those two properties if you fork the project, so your copies look for your releases.
@@ -57,12 +59,14 @@ The repository the app checks is baked in at build time (`UpdateRepositoryOwner`
 
 Versions are stamped from the git tag, so the tag is the single source of truth.
 
+Add the version's section to [CHANGELOG.md](CHANGELOG.md) first, then tag it:
+
 ```powershell
 git tag v1.1.0
 git push origin v1.1.0
 ```
 
-That starts the `Release` workflow, which publishes the single file, packs the portable zip, compiles the installer with Inno Setup, writes `SHA256SUMS.txt` and creates the GitHub release with all three attached. You can also start it by hand from the **Actions** tab (*Release → Run workflow*) and type a version there; a tag or version containing `-` (for example `v1.1.0-beta1`) is published as a pre-release, which the in-app updater ignores unless it is the newest release.
+That starts the `Release` workflow, which publishes the single file, packs the portable zip, compiles the installer with Inno Setup, writes `SHA256SUMS.txt`, takes the release notes from the matching `## [1.1.0]` section of `CHANGELOG.md` and creates the GitHub release with all three files attached. You can also start it by hand from the **Actions** tab (*Release → Run workflow*) and type a version there; a tag or version containing `-` (for example `v1.1.0-beta1`) is published as a pre-release, which the in-app updater ignores unless it is the newest release.
 
 To build the same artifacts locally:
 

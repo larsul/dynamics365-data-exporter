@@ -141,6 +141,61 @@ jobs:
           $lines | Set-Content dist\SHA256SUMS.txt -Encoding ascii
           $lines | ForEach-Object { Write-Host $_ }
 
+      - name: Build the release notes from CHANGELOG.md
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $notes = "notes.md"
+
+          # Pull out the "## [<version>]" section, up to the next "## [" heading.
+          $section = $null
+          if (Test-Path CHANGELOG.md) {
+            $lines = Get-Content CHANGELOG.md
+            $start = -1
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+              if ($lines[$i] -match "^##\s+\[$([regex]::Escape($version))\]") { $start = $i + 1; break }
+            }
+            if ($start -ge 0) {
+              $end = $lines.Count
+              for ($i = $start; $i -lt $lines.Count; $i++) {
+                if ($lines[$i] -match '^##\s+\[') { $end = $i; break }
+              }
+              # Drop the link-reference definitions at the foot of the file ("[1.0.0]: https://...").
+              $body = $lines[$start..($end - 1)] | Where-Object { $_ -notmatch '^\[[^\]]+\]:\s+http' }
+              $section = ($body -join "`n").Trim()
+            }
+          }
+          if ([string]::IsNullOrWhiteSpace($section)) {
+            Write-Warning "CHANGELOG.md has no section for $version; falling back to the install table only."
+            $section = "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)."
+          }
+
+          $install = @"
+          ## Install
+
+          | | Download | Notes |
+          |---|---|---|
+          | **Installer** | ``DataverseToSql-$version-Setup.exe`` | Start menu and desktop shortcuts, clean uninstall, in-place upgrades. |
+          | **Portable** | ``DataverseToSql-$version-portable-win-x64.zip`` | Nothing to install. Unpack into a folder you can write to and run ``DataverseToSql.exe``. |
+
+          Windows 10 or 11, 64-bit. Nothing else needed: .NET 8 is built into the executable.
+
+          Windows SmartScreen may warn that the file is not commonly downloaded, because the build is
+          not code-signed. Choose **More info** then **Run anyway**, or check the SHA-256 in
+          ``SHA256SUMS.txt`` first.
+
+          ## Update
+
+          Use the **Updates** button at the bottom of the app window: it checks this page, downloads the
+          file that matches how the app was installed, applies it and restarts the app.
+
+          Full history: [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
+          "@
+
+          Set-Content -Path $notes -Value ($section + "`n`n" + $install) -Encoding utf8
+          Write-Host "--- release notes ---"
+          Get-Content $notes
+
       - name: Keep the build as a workflow artifact
         uses: actions/upload-artifact@v4
         with:
@@ -154,27 +209,9 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Dataverse to SQL Sync ${{ steps.version.outputs.version }}
           prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
-          generate_release_notes: true
+          body_path: notes.md
           fail_on_unmatched_files: true
           files: |
             dist/DataverseToSql-${{ steps.version.outputs.version }}-Setup.exe
             dist/DataverseToSql-${{ steps.version.outputs.version }}-portable-win-x64.zip
             dist/SHA256SUMS.txt
-          body: |
-            ## Install
-
-            | | Download | Notes |
-            |---|---|---|
-            | **Installer** | `DataverseToSql-${{ steps.version.outputs.version }}-Setup.exe` | Start menu and desktop shortcuts, clean uninstall, in-place upgrades. |
-            | **Portable** | `DataverseToSql-${{ steps.version.outputs.version }}-portable-win-x64.zip` | Nothing to install. Unpack into a folder you can write to and run `DataverseToSql.exe`. |
-
-            Windows 10 or 11, 64-bit. Nothing else needed: .NET 8 is built into the executable.
-
-            Windows SmartScreen may warn that the file is not commonly downloaded, because the build
-            is not code-signed. Choose **More info** then **Run anyway**, or check the SHA-256 in
-            `SHA256SUMS.txt` first.
-
-            ## Update
-
-            Use the **Updates** button at the bottom of the app window: it checks this page, downloads
-            the file that matches how the app was installed, applies it and restarts the app.
