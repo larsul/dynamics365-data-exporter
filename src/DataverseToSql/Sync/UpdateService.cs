@@ -52,12 +52,16 @@ internal static class UpdateService
     private const string InstallerSuffix = "-Setup.exe";
     private const string PortableSuffix = "-portable-win-x64.zip";
 
-    private static readonly HttpClient Http = CreateClient();
+    // Lazy, not a field initializer: the client's User-Agent needs CurrentVersion, and static fields are
+    // initialized in declaration order, so building it eagerly here would read CurrentVersion as null.
+    private static readonly Lazy<HttpClient> LazyHttp = new(CreateClient, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    private static HttpClient Http => LazyHttp.Value;
 
     private static HttpClient CreateClient()
     {
         var client = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
-        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(UserAgent, CurrentVersion.ToString(3)));
+        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(UserAgent, CurrentVersionText));
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
         return client;

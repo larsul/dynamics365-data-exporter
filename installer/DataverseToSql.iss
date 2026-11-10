@@ -63,6 +63,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "{#AppExe}"; Flags: ignoreversion
 Source: "..\scripts\*.sql"; DestDir: "{app}\scripts"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme skipifsourcedoesntexist
+Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\settings.sample.json"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 ; Marker: tells the in-app updater that this copy was installed, not unpacked from the portable zip.
 Source: "installed-marker.txt"; DestDir: "{app}"; DestName: ".installed"; Flags: ignoreversion
