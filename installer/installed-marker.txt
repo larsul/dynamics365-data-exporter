@@ -1,0 +1,3 @@
+This file marks an installed copy of Dataverse to SQL Sync.
+The in-app updater reads it and updates by running the new setup program.
+Do not delete it.

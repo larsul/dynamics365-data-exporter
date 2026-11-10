@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <!-- Version: the release workflow overrides these from the git tag (-p:Version=1.2.3). -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Product>Dataverse to SQL Sync</Product>
+    <AssemblyTitle>Dataverse to SQL Sync</AssemblyTitle>
+    <Company>DataverseToSql</Company>
+    <Description>Copies a Dataverse table into SQL Server or Azure SQL Database.</Description>
+    <Copyright>Copyright (c) 2026</Copyright>
+  </PropertyGroup>
+
+  <!-- Where the in-app updater looks for new releases. Change these if you fork the project. -->
+  <PropertyGroup>
+    <UpdateRepositoryOwner>larsul</UpdateRepositoryOwner>
+    <UpdateRepositoryName>dynamics365-data-exporter</UpdateRepositoryName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>UpdateRepository</_Parameter1>
+      <_Parameter2>$(UpdateRepositoryOwner)/$(UpdateRepositoryName)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+    <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.1.1" />
+    <PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.27" />
+  </ItemGroup>
+
+</Project>

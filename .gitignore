@@ -1,0 +1,13 @@
+# Build output
+bin/
+obj/
+publish/
+dist/
+installer/Output/
+*.user
+.vs/
+
+# Real configurations hold tenant URLs, server names and sign-in names: keep them local.
+# settings.sample.json is the version that is committed.
+/settings.json
+*.local.json

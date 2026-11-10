@@ -1,0 +1,50 @@
+name: Build
+
+# Checks that every push and pull request still compiles and that the single-file publish works.
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore src/DataverseToSql/DataverseToSql.csproj
+
+      - name: Build
+        run: dotnet build src/DataverseToSql/DataverseToSql.csproj -c Release --no-restore -warnaserror
+
+      - name: Publish the self-contained single file
+        run: >
+          dotnet publish src/DataverseToSql/DataverseToSql.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=none
+          -o publish
+
+      - name: Check the executable
+        shell: pwsh
+        run: |
+          $exe = Get-Item publish\DataverseToSql.exe
+          "{0}  {1} MB  file version {2}" -f $exe.Name,
+            [math]::Round($exe.Length / 1MB, 1),
+            $exe.VersionInfo.FileVersion | Write-Host

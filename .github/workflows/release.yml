@@ -1,0 +1,180 @@
+name: Release
+
+# Publishes a GitHub release with the installer and the portable zip.
+# Trigger it by pushing a tag like v1.2.3, or run it by hand from the Actions tab.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build and release, without the leading v (for example 1.2.3)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark the release as a pre-release"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Work out the version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/*') {
+            $tag = $env:GITHUB_REF -replace '^refs/tags/', ''
+          } else {
+            $tag = 'v' + '${{ inputs.version }}'.TrimStart('v')
+          }
+          $version = $tag.TrimStart('v')
+          # AssemblyVersion needs four plain numbers, so drop any pre-release suffix for it.
+          $numeric = ($version -split '[-+]')[0]
+          $parts = $numeric -split '\.'
+          while ($parts.Count -lt 3) { $parts += '0' }
+          $assembly = ($parts[0..2] -join '.') + '.0'
+          $isPre = $version -match '-' -or '${{ inputs.prerelease }}' -eq 'true'
+          "tag=$tag"                 | Out-File $env:GITHUB_OUTPUT -Append
+          "version=$version"         | Out-File $env:GITHUB_OUTPUT -Append
+          "numeric=$numeric"         | Out-File $env:GITHUB_OUTPUT -Append
+          "assembly=$assembly"       | Out-File $env:GITHUB_OUTPUT -Append
+          "prerelease=$($isPre.ToString().ToLower())" | Out-File $env:GITHUB_OUTPUT -Append
+          Write-Host "Building $tag (assembly $assembly, pre-release $isPre)"
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore src/DataverseToSql/DataverseToSql.csproj
+
+      - name: Publish the self-contained single file
+        run: >
+          dotnet publish src/DataverseToSql/DataverseToSql.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=none
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:AssemblyVersion=${{ steps.version.outputs.assembly }}
+          -p:FileVersion=${{ steps.version.outputs.assembly }}
+          -p:InformationalVersion=${{ steps.version.outputs.version }}
+          -p:UpdateRepositoryOwner=${{ github.repository_owner }}
+          -p:UpdateRepositoryName=${{ github.event.repository.name }}
+          -o publish
+
+      - name: Build the portable zip
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $staging = Join-Path $env:RUNNER_TEMP "portable"
+          New-Item -ItemType Directory -Path $staging -Force | Out-Null
+          Copy-Item publish\DataverseToSql.exe $staging
+          Copy-Item README.md, LICENSE, settings.sample.json $staging -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path "$staging\scripts" -Force | Out-Null
+          Copy-Item scripts\*.sql "$staging\scripts" -ErrorAction SilentlyContinue
+          # Short note so someone who only has the zip knows what to do with it.
+          @"
+          Dataverse to SQL Sync $version - portable
+          =========================================
+
+          Nothing to install. Put DataverseToSql.exe in a folder you can write to,
+          for example C:\Tools\DataverseToSql, and double-click it.
+
+          Keep it in a writable folder: the Updates button in the app replaces this
+          executable in place, which it cannot do under C:\Program Files.
+
+          Headless run:  DataverseToSql.exe --run [path\to\settings.json]
+          Configurations: %LOCALAPPDATA%\DataverseToSql
+          Releases:      https://github.com/${{ github.repository }}/releases
+          "@ | Set-Content -Path "$staging\README-portable.txt" -Encoding utf8
+
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          $zip = "dist\DataverseToSql-$version-portable-win-x64.zip"
+          Compress-Archive -Path "$staging\*" -DestinationPath $zip -CompressionLevel Optimal -Force
+          Write-Host "Wrote $zip ($([math]::Round((Get-Item $zip).Length / 1MB)) MB)"
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          # Install Inno Setup rather than trusting the runner image's version: the script uses
+          # directives (ArchitecturesAllowed=x64compatible) that need 6.3 or newer.
+          choco install innosetup --version=6.4.3 --no-progress -y
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "${env:ProgramFiles}\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $iscc) { throw "ISCC.exe not found after installing Inno Setup." }
+          Write-Host "Using $iscc"
+          & $iscc "/DAppVersion=${{ steps.version.outputs.numeric }}" "/DSourceExe=..\publish\DataverseToSql.exe" "installer\DataverseToSql.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+          # The installer's own name carries the numeric version; rename it to the full tag version.
+          $built = Get-ChildItem installer\Output\*.exe | Select-Object -First 1
+          $wanted = "DataverseToSql-${{ steps.version.outputs.version }}-Setup.exe"
+          if ($built.Name -ne $wanted) { Rename-Item $built.FullName $wanted }
+          Copy-Item "installer\Output\$wanted" dist\
+          Write-Host "Wrote dist\$wanted"
+
+      - name: List the artifacts
+        shell: pwsh
+        run: Get-ChildItem dist | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}} | Format-Table
+
+      - name: Checksums
+        shell: pwsh
+        run: |
+          $lines = Get-ChildItem dist -File | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          }
+          $lines | Set-Content dist\SHA256SUMS.txt -Encoding ascii
+          $lines | ForEach-Object { Write-Host $_ }
+
+      - name: Keep the build as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DataverseToSql-${{ steps.version.outputs.version }}
+          path: dist/*
+          retention-days: 14
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Dataverse to SQL Sync ${{ steps.version.outputs.version }}
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/DataverseToSql-${{ steps.version.outputs.version }}-Setup.exe
+            dist/DataverseToSql-${{ steps.version.outputs.version }}-portable-win-x64.zip
+            dist/SHA256SUMS.txt
+          body: |
+            ## Install
+
+            | | Download | Notes |
+            |---|---|---|
+            | **Installer** | `DataverseToSql-${{ steps.version.outputs.version }}-Setup.exe` | Start menu and desktop shortcuts, clean uninstall, in-place upgrades. |
+            | **Portable** | `DataverseToSql-${{ steps.version.outputs.version }}-portable-win-x64.zip` | Nothing to install. Unpack into a folder you can write to and run `DataverseToSql.exe`. |
+
+            Windows 10 or 11, 64-bit. Nothing else needed: .NET 8 is built into the executable.
+
+            Windows SmartScreen may warn that the file is not commonly downloaded, because the build
+            is not code-signed. Choose **More info** then **Run anyway**, or check the SHA-256 in
+            `SHA256SUMS.txt` first.
+
+            ## Update
+
+            Use the **Updates** button at the bottom of the app window: it checks this page, downloads
+            the file that matches how the app was installed, applies it and restarts the app.
